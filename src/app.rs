@@ -1,19 +1,10 @@
 use std::{fs, path::Path};
 
 use color_eyre::eyre::Result;
-use colors_transform::{Color, Rgb};
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-use eyre::{eyre, ContextCompat};
-use icalendar::{Calendar, CalendarComponent, Component};
-use ratatui::{
-    DefaultTerminal, Frame,
-    buffer::Buffer,
-    layout::Rect,
-    style::{self, Style, Stylize},
-    symbols::border,
-    text::Line,
-    widgets::{Block, List, Widget},
-};
+use colors_transform::Rgb;
+use eyre::eyre;
+use icalendar::Calendar;
+use ratatui::widgets::ListState;
 
 use crate::config::{CalendarConfig, IsekConfig};
 
@@ -81,8 +72,10 @@ impl IsekCalendar {
 
 #[derive(Debug, Default)]
 pub struct App {
-    exit: bool,
-    calendars: Vec<IsekCalendar>,
+    pub exit: bool,
+    pub calendars: Vec<IsekCalendar>,
+
+    pub list_state: ListState,
 }
 
 impl App {
@@ -99,86 +92,11 @@ impl App {
         })
     }
 
-    pub fn tui(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
-        while !self.exit {
-            terminal.draw(|f| self.draw(f))?;
-
-            self.handle_events()?;
-        }
-
-        Ok(())
-    }
-
     pub fn exit(&mut self) {
         self.exit = true
     }
 
-    pub fn draw(&self, frame: &mut Frame) {
-        frame.render_widget(self, frame.area());
-    }
-
-    fn handle_events(&mut self) -> Result<()> {
-        match event::read()? {
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(key_event)
-            }
-            _ => {}
-        }
-
-        Ok(())
-    }
-
-    fn handle_key_event(&mut self, key_event: KeyEvent) {
-        match key_event.code {
-            KeyCode::Char('q') => self.exit(),
-            _ => {}
-        }
-    }
-}
-
-impl Widget for &App {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(" ISEK ".bold());
-
-        let block = Block::bordered()
-            .title(title.centered())
-            .border_set(border::ROUNDED);
-
-        let items = self
-            .calendars
-            .iter()
-            .flat_map(|cal| {
-                cal.ical
-                    .components
-                    .iter()
-                    .flat_map(|c| {
-                        if let CalendarComponent::Todo(t) = c {
-                            Some(t)
-                        } else {
-                            None
-                        }
-                    })
-                    .map(|t| {
-                        Line::from(vec![
-                            "- ".into(),
-                            format!(" {} ", cal.name).bg(style::Color::Rgb(
-                                cal.color.get_red() as u8,
-                                cal.color.get_green() as u8,
-                                cal.color.get_blue() as u8,
-                            )),
-                            " ".into(),
-                            t.get_summary().wrap_err_with(|| format!("No summary (e.g. title) for some ToDo in {}", cal.name)).unwrap().into(),
-                        ])
-                    })
-                    .collect::<Vec<Line>>()
-            })
-            .collect::<Vec<Line>>();
-
-        List::new(items)
-            .block(block)
-            .highlight_style(Style::new().bold())
-            .highlight_symbol(">")
-            .repeat_highlight_symbol(true)
-            .render(area, buf);
+    pub fn escape(&mut self) {
+        self.list_state.select(None);
     }
 }
