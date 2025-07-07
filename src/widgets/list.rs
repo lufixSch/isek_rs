@@ -9,17 +9,20 @@ use ratatui::{
 
 use crate::{App, app::IsekCalendar};
 
+/// State for the todo list widget that tracks which calendars are displayed and list navigation state
 pub struct ToDoListState {
     pub calendars: Vec<IsekCalendar>,
     pub list: ListState,
 }
 
+/// ToDo List Widget
 #[derive(Default)]
 pub struct ToDoList<'a> {
     block: Option<Block<'a>>,
 }
 
 impl<'a> ToDoList<'a> {
+    /// Configure the block (border and title) for this widget
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
@@ -35,6 +38,7 @@ impl StatefulWidget for ToDoList<'_> {
         buf: &mut ratatui::prelude::Buffer,
         state: &mut Self::State,
     ) {
+        // Generate list items from the application's calendar data
         let items = state
             .calendars
             .iter()
@@ -79,6 +83,7 @@ impl StatefulWidget for ToDoList<'_> {
             })
             .collect::<Vec<Line>>();
 
+        // Configure and render the list widget
         let mut list = List::new(items);
 
         if let Some(block) = self.block {
