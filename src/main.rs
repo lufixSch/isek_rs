@@ -13,7 +13,7 @@ fn main() -> Result<()> {
     // Initialize alternate screen and raw mode for terminal input handling
     execute!(stdout(), EnterAlternateScreen)?;
     enable_raw_mode()?;
-    
+
     // Set up panic hook to restore terminal state on panic
     set_panic_hook();
 
@@ -23,11 +23,8 @@ fn main() -> Result<()> {
     // Create and initialize the main application instance
     let mut app = App::new()?;
 
-    // Create a new terminal using Crossterm backend
-    Terminal::new(CrosstermBackend::new(stdout()))?;
-
     // Initialize ratatui and run the application
-    let mut terminal = ratatui::init();
+    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     let res = run(&mut terminal, &mut app);
 
     // Restore terminal to its original state before exiting
@@ -57,7 +54,7 @@ fn run(terminal: &mut DefaultTerminal, app: &mut App) -> Result<()> {
     while !app.exit {
         // Draw the current application state in the terminal
         terminal.draw(|f| view.draw(app, f))?;
-        
+
         // Handle user input and other events
         view.handle_events(app)?;
     }

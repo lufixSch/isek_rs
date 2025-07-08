@@ -1,12 +1,25 @@
-use std::{fs, path::Path};
+use std::{cmp::Ordering, collections::HashMap, fs, path::Path};
 
+use chrono::{Local, NaiveDate};
 use color_eyre::eyre::Result;
 use colors_transform::Rgb;
 use eyre::eyre;
-use icalendar::Calendar;
+use icalendar::{Calendar, CalendarComponent, Component, Todo};
 use ratatui::widgets::ListState;
 
 use crate::config::{CalendarConfig, IsekConfig};
+
+#[derive(Debug)]
+pub enum SortingConfig {
+    DATE(bool),
+    PRIORITY(bool),
+    INDEX(bool),
+}
+
+#[derive(Debug)]
+pub enum CalData {
+    VDIR(HashMap<String, Calendar>),
+}
 
 /// Representation of a calendar with its configuration and data
 #[derive(Debug)]
@@ -18,7 +31,7 @@ pub struct IsekCalendar {
     /// Color associated with the calendar (used for display)
     pub color: Rgb,
     /// Parsed iCalendar data containing todos and events
-    pub ical: Calendar,
+    pub data: CalData,
 }
 
 impl IsekCalendar {
@@ -29,7 +42,7 @@ impl IsekCalendar {
                 // Read all .ics files in directory
                 let dir_path = Path::new(&config.path);
                 let entries = fs::read_dir(dir_path)?;
-                let mut cal = Calendar::new();
+                let mut cal = HashMap::new();
 
                 // Get calendar display name from file
                 let name_path = dir_path.join("displayname");
@@ -60,8 +73,19 @@ impl IsekCalendar {
                         match fs::read_to_string(&path) {
                             Ok(contents) => {
                                 // Parse iCalendar content
-                                let mut parsed_calendar: Calendar = contents.parse().unwrap();
-                                cal.append(&mut parsed_calendar);
+                                match contents.parse() {
+                                    Ok(parsed_calendar) => {
+                                        cal.insert(
+                                            String::from(
+                                                path.file_name().unwrap().to_str().unwrap(),
+                                            ), // WARN: File name should always exist and be valid
+                                            parsed_calendar,
+                                        );
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Error parsing file {}: {}", path.display(), e)
+                                    }
+                                }
                             }
                             Err(e) => eprintln!("Error reading file {}: {}", path.display(), e),
                         }
@@ -72,10 +96,74 @@ impl IsekCalendar {
                     name,
                     color,
                     config: cfg,
-                    ical: cal,
+                    data: CalData::VDIR(cal),
                 })
             }
         }
+    }
+
+    pub fn get_todos(&self, sort: Option<SortingConfig>) -> Vec<&Todo> {
+        let mut todos: Vec<&Todo> = match &self.data {
+            CalData::VDIR(cals) => cals
+                .iter()
+                .flat_map(|(_, cal)| {
+                    cal.components
+                        .iter()
+                        .flat_map(|c| {
+                            if let CalendarComponent::Todo(t) = c {
+                                Some(t)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<&Todo>>()
+                })
+                .collect(),
+        };
+
+        if let Some(sort) = sort {
+            match sort {
+                SortingConfig::DATE(ascending) => {
+                    todos.sort_by(|a, b| {
+                        let a_due = a.get_due();
+                        let b_due = b.get_due();
+
+                        if let Some(a_due) = a_due {
+                            if let Some(b_due) = b_due {
+                                return a_due.date_naive().cmp(&b_due.date_naive());
+                            };
+
+                            return Ordering::Less;
+                        };
+
+                        if b_due.is_none() {
+                            return Ordering::Greater;
+                        };
+
+                        Ordering::Equal
+                    });
+
+                    if !ascending {
+                        todos.reverse();
+                    }
+                }
+                SortingConfig::PRIORITY(ascending) => {
+                    todos.sort_by(|a, b| {
+                        let a_prio = a.get_priority().unwrap_or(10);
+                        let b_prio =b.get_priority().unwrap_or(10);
+
+                        a_prio.cmp(&b_prio)
+                    });
+
+                    if !ascending {
+                        todos.reverse();
+                    }
+                }
+                _ => {}
+            };
+        };
+
+        todos
     }
 }
 

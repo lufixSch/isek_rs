@@ -1,13 +1,17 @@
 use colors_transform::Color;
 use eyre::ContextCompat;
-use icalendar::{CalendarComponent, Component};
+use icalendar::Component;
 use ratatui::{
     style::{self, Style, Stylize},
     text::Line,
     widgets::{Block, List, ListState, StatefulWidget},
 };
 
-use crate::{App, app::IsekCalendar};
+use crate::{
+    App,
+    app::{IsekCalendar, SortingConfig},
+    helper::format_ical_datetime,
+};
 
 /// State for the todo list widget that tracks which calendars are displayed and list navigation state
 pub struct ToDoListState {
@@ -43,16 +47,8 @@ impl StatefulWidget for ToDoList<'_> {
             .calendars
             .iter()
             .flat_map(|cal| {
-                cal.ical
-                    .components
+                cal.get_todos(Some(SortingConfig::PRIORITY(true)))
                     .iter()
-                    .flat_map(|c| {
-                        if let CalendarComponent::Todo(t) = c {
-                            Some(t)
-                        } else {
-                            None
-                        }
-                    })
                     .map(|t| {
                         Line::from(vec![
                             match t.get_completed() {
@@ -73,8 +69,11 @@ impl StatefulWidget for ToDoList<'_> {
                                 .unwrap()
                                 .into(),
                             match t.get_due() {
-                                Some(dt) => format!(" {}", dt.date_naive().format("%Y-%m-%d"))
-                                    .fg(style::Color::Blue),
+                                Some(dt) => format!(
+                                    " {}",
+                                    format_ical_datetime(dt, "%Y-%m-%d", "%Y-%m-%d %H:%M")
+                                )
+                                .fg(style::Color::Blue),
                                 None => "".into(),
                             },
                         ])
@@ -93,6 +92,7 @@ impl StatefulWidget for ToDoList<'_> {
         list.highlight_style(Style::new().bold())
             .highlight_symbol("> ")
             .repeat_highlight_symbol(true)
+            .highlight_spacing(ratatui::widgets::HighlightSpacing::Always)
             .render(area, buf, &mut state.list_state);
     }
 }

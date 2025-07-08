@@ -7,3 +7,5 @@ pub mod widgets;
 
 mod view;
 pub use view::{MainView, View};
+
+pub mod helper;
