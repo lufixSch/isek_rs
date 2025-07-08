@@ -13,6 +13,14 @@ use crate::config::{
 };
 
 #[derive(Debug)]
+pub enum State {
+    Normal,
+    Interactive,
+    ConfigSort,
+    ConfigFilter,
+}
+
+#[derive(Debug)]
 pub enum CalData {
     VDIR(HashMap<String, Calendar>),
 }
@@ -215,6 +223,9 @@ pub struct App {
     /// Flag to indicate if the application should exit
     pub exit: bool,
 
+    /// Indicates the state, the application is in
+    pub state: State,
+
     /// List of loaded calendars with their data
     pub calendars: Vec<IsekCalendar>,
 
@@ -233,6 +244,7 @@ impl App {
 
         Ok(Self {
             exit: false,
+            state: State::Normal,
             calendars: config
                 .calendars
                 .into_iter()
@@ -243,6 +255,11 @@ impl App {
         })
     }
 
+    /// Switch to another application state
+    pub fn switch_state(&mut self, state: State) {
+        self.state = state
+    }
+
     /// Set the exit flag to true, which will terminate the application loop
     pub fn exit(&mut self) {
         self.exit = true
@@ -251,5 +268,16 @@ impl App {
     /// Clear list selection (used for escape key)
     pub fn escape(&mut self) {
         self.list_state.select(None);
+        self.state = State::Normal
+    }
+
+    pub fn configure_sort(&mut self, sort: SortingConfig) {
+        self.display.sort = sort;
+        self.escape();
+    }
+
+    pub fn configure_filter(&mut self, filter: FilterConfig) {
+        self.display.filter = filter;
+        self.escape();
     }
 }

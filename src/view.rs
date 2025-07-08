@@ -1,10 +1,20 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use eyre::Result;
 use ratatui::{
-    style::Stylize, symbols::border, text::Line, widgets::{Block, Padding}, Frame
+    Frame,
+    layout::Rect,
+    style::Stylize,
+    symbols::border,
+    text::Line,
+    widgets::{Block, Padding},
 };
 
-use crate::{App, widgets::ToDoList};
+use crate::{
+    App,
+    app::State,
+    config::{FilterConfig, SortingConfig, SortingVariant},
+    widgets::{StatusBar, ToDoList},
+};
 
 /// Trait defining the interface for views in the application
 pub trait View {
@@ -15,18 +25,53 @@ pub trait View {
     fn draw(&self, app: &mut App, frame: &mut Frame);
 }
 
-#[derive(Default)]
 /// Main application view that displays the todo list
+#[derive(Default)]
 pub struct MainView;
 
 impl MainView {
     /// Handle key press events for navigation and quitting
     fn handle_key_event(&self, app: &mut App, key_event: KeyEvent) {
-        match key_event.code {
-            KeyCode::Char('q') => app.exit(),
-            KeyCode::Char('j') => app.list_state.select_next(),
-            KeyCode::Char('k') => app.list_state.select_previous(),
-            KeyCode::Esc => app.escape(),
+        match app.state {
+            State::Normal => match key_event.code {
+                KeyCode::Char('q') => app.exit(),
+                KeyCode::Char('j') => app.list_state.select_next(),
+                KeyCode::Char('k') => app.list_state.select_previous(),
+                KeyCode::Char('s') => app.switch_state(State::ConfigSort),
+                KeyCode::Char('f') => app.switch_state(State::ConfigFilter),
+                KeyCode::Esc => app.escape(),
+                _ => {}
+            },
+            State::ConfigSort => match key_event.code {
+                KeyCode::Char('d') => app.configure_sort(SortingConfig {
+                    by: SortingVariant::Date,
+                    ascending: app.display.sort.ascending,
+                    ignore_done: app.display.sort.ignore_done,
+                }),
+                KeyCode::Char('p') => app.configure_sort(SortingConfig {
+                    by: SortingVariant::Priority,
+                    ascending: app.display.sort.ascending,
+                    ignore_done: app.display.sort.ignore_done,
+                }),
+                KeyCode::Char('i') => app.configure_sort(SortingConfig {
+                    by: SortingVariant::Index,
+                    ascending: app.display.sort.ascending,
+                    ignore_done: app.display.sort.ignore_done,
+                }),
+                KeyCode::Char('a') => app.configure_sort(SortingConfig {
+                    by: app.display.sort.by.clone(),
+                    ascending: !app.display.sort.ascending,
+                    ignore_done: app.display.sort.ignore_done,
+                }),
+                _ => app.escape(),
+            },
+            State::ConfigFilter => match key_event.code {
+                KeyCode::Char('d') => app.configure_filter(FilterConfig {
+                    show_done: app.display.filter.show_done.next(),
+                    show_done_for: app.display.filter.show_done_for,
+                }),
+                _ => app.escape(),
+            },
             _ => {}
         }
     }
@@ -53,10 +98,38 @@ impl View for MainView {
         let block = Block::bordered()
             .title(title.centered())
             .border_set(border::ROUNDED)
-            .padding(Padding::symmetric(2, 1))
-        ;
+            .padding(Padding::symmetric(2, 1));
+
+        let area = frame.area();
+        let status_bar_area = Rect::new(0, area.height - 1, area.width, 1);
+        let main_area = Rect::new(0, 0, area.width, area.height - status_bar_area.height);
 
         // Render the todo list widget in the main frame area
-        frame.render_stateful_widget(ToDoList::default().block(block), frame.area(), app);
+        frame.render_stateful_widget(ToDoList::default().block(block), main_area, app);
+
+        // Render status bar
+        let keybinds = match app.state {
+            State::Normal => vec![("q", "Exit"), ("s", "Sort"), ("f", "Filter")],
+            State::ConfigSort => vec![
+                ("d", "By Date"),
+                ("p", "By Priority"),
+                ("i", "By Index"),
+                ("a", "Toggle Ascending"),
+            ],
+            State::ConfigFilter => {
+                vec![("d", "Rotate show done")] 
+            }
+            _ => vec![],
+        };
+
+        frame.render_widget(
+            StatusBar::new(
+                keybinds
+                    .into_iter()
+                    .map(|(a, b)| (String::from(a), String::from(b)))
+                    .collect(),
+            ),
+            status_bar_area,
+        );
     }
 }

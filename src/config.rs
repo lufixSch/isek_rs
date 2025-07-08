@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 /// Configuration structure for the application
@@ -30,7 +32,7 @@ impl Default for IsekConfig {
                 },
                 filter: FilterConfig {
                     show_done: ShowDoneOptions::Hide,
-                    show_done_for: 5
+                    show_done_for: 5,
                 },
                 date_format: DateFormatConfig {
                     date: "%Y-%m-%d".into(),
@@ -100,10 +102,30 @@ pub enum ShowDoneOptions {
     Hide,
 }
 
+impl ShowDoneOptions {
+    pub fn next(&self) -> Self {
+        match self {
+            ShowDoneOptions::Show => ShowDoneOptions::Some,
+            ShowDoneOptions::Some => ShowDoneOptions::Hide,
+            ShowDoneOptions::Hide => ShowDoneOptions::Show,
+        }
+    }
+}
+
+impl Display for ShowDoneOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ShowDoneOptions::Show => write!(f, "Show"),
+            ShowDoneOptions::Some => write!(f, "Some"),
+            ShowDoneOptions::Hide => write!(f, "Hide"),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FilterConfig {
     pub show_done: ShowDoneOptions,
 
     // Shows tasks done for less than x days if ShowDoneOptions::Some
-    pub show_done_for: u64
+    pub show_done_for: u64,
 }
