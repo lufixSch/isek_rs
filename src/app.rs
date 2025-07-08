@@ -7,9 +7,12 @@ use eyre::eyre;
 use icalendar::{Calendar, CalendarComponent, Component, Todo};
 use ratatui::widgets::ListState;
 
-use crate::config::{
-    CalendarConfig, DisplayOptions, FilterConfig, IsekConfig, ShowDoneOptions, SortingConfig,
-    SortingVariant,
+use crate::{
+    config::{
+        CalendarConfig, DisplayOptions, FilterConfig, IsekConfig, ShowDoneOptions, SortingConfig,
+        SortingVariant,
+    },
+    helper::{calculate_index, ical_datetime_to_chrono},
 };
 
 #[derive(Debug)]
@@ -205,7 +208,26 @@ impl IsekCalendar {
                         a_prio.cmp(&b_prio)
                     });
                 }
-                _ => {}
+                SortingVariant::Index => {
+                    let now = Utc::now();
+
+                    todos.sort_by(|a, b| {
+                        let a_dt = a
+                            .get_due()
+                            .map(ical_datetime_to_chrono)
+                            .unwrap_or(Utc::now());
+                        let a_prio = a.get_priority().unwrap_or(10);
+
+                        let b_dt = b
+                            .get_due()
+                            .map(ical_datetime_to_chrono)
+                            .unwrap_or(Utc::now());
+                        let b_prio = b.get_priority().unwrap_or(10);
+
+                        calculate_index(&a_prio, &a_dt, &now)
+                            .total_cmp(&calculate_index(&b_prio, &b_dt, &now))
+                    });
+                }
             };
 
             if !sort.ascending {
