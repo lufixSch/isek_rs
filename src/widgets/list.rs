@@ -7,11 +7,7 @@ use ratatui::{
     widgets::{Block, List, ListState, StatefulWidget},
 };
 
-use crate::{
-    App,
-    app::{IsekCalendar, SortingConfig},
-    helper::format_ical_datetime,
-};
+use crate::{App, app::IsekCalendar, helper::format_ical_datetime};
 
 /// State for the todo list widget that tracks which calendars are displayed and list navigation state
 pub struct ToDoListState {
@@ -47,7 +43,7 @@ impl StatefulWidget for ToDoList<'_> {
             .calendars
             .iter()
             .flat_map(|cal| {
-                cal.get_todos(Some(SortingConfig::PRIORITY(true)))
+                cal.get_todos(Some(&state.display.sort), Some(&state.display.filter))
                     .iter()
                     .map(|t| {
                         Line::from(vec![
@@ -71,7 +67,11 @@ impl StatefulWidget for ToDoList<'_> {
                             match t.get_due() {
                                 Some(dt) => format!(
                                     " {}",
-                                    format_ical_datetime(dt, "%Y-%m-%d", "%Y-%m-%d %H:%M")
+                                    format_ical_datetime(
+                                        dt,
+                                        &state.display.date_format.date,
+                                        &state.display.date_format.datetime
+                                    )
                                 )
                                 .fg(style::Color::Blue),
                                 None => "".into(),

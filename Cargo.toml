@@ -3,6 +3,10 @@ name = "isek_rs"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "isek"
+path = "src/main.rs"
+
 [dependencies]
 chrono = "0.4.41"
 chrono-tz = "0.10.3"

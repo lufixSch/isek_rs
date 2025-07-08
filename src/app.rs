@@ -1,20 +1,16 @@
 use std::{cmp::Ordering, collections::HashMap, fs, path::Path};
 
-use chrono::{Local, NaiveDate};
+use chrono::Utc;
 use color_eyre::eyre::Result;
 use colors_transform::Rgb;
 use eyre::eyre;
 use icalendar::{Calendar, CalendarComponent, Component, Todo};
 use ratatui::widgets::ListState;
 
-use crate::config::{CalendarConfig, IsekConfig};
-
-#[derive(Debug)]
-pub enum SortingConfig {
-    DATE(bool),
-    PRIORITY(bool),
-    INDEX(bool),
-}
+use crate::config::{
+    CalendarConfig, DisplayOptions, FilterConfig, IsekConfig, ShowDoneOptions, SortingConfig,
+    SortingVariant,
+};
 
 #[derive(Debug)]
 pub enum CalData {
@@ -102,7 +98,11 @@ impl IsekCalendar {
         }
     }
 
-    pub fn get_todos(&self, sort: Option<SortingConfig>) -> Vec<&Todo> {
+    pub fn get_todos(
+        &self,
+        sort: Option<&SortingConfig>,
+        filter: Option<&FilterConfig>,
+    ) -> Vec<&Todo> {
         let mut todos: Vec<&Todo> = match &self.data {
             CalData::VDIR(cals) => cals
                 .iter()
@@ -121,12 +121,46 @@ impl IsekCalendar {
                 .collect(),
         };
 
+        if let Some(filter) = filter {
+            match filter.show_done {
+                ShowDoneOptions::Hide => {
+                    todos.retain(|t| t.get_completed().is_none());
+                }
+                ShowDoneOptions::Some => {
+                    todos.retain(|t| {
+                        let completed = t.get_completed();
+
+                        if let Some(dt) = completed {
+                            let diff = Utc::now() - dt;
+
+                            diff.num_days() < filter.show_done_for as i64
+                        } else {
+                            true
+                        }
+                    });
+                }
+                ShowDoneOptions::Show => {}
+            }
+        }
+
         if let Some(sort) = sort {
-            match sort {
-                SortingConfig::DATE(ascending) => {
+            match sort.by {
+                SortingVariant::Date => {
                     todos.sort_by(|a, b| {
                         let a_due = a.get_due();
                         let b_due = b.get_due();
+
+                        if a.get_completed().is_some() {
+                            if b.get_completed().is_some() {
+                                return Ordering::Equal;
+                            };
+
+                            return Ordering::Greater;
+                        }
+
+                        if b.get_completed().is_some() {
+                            return Ordering::Less;
+                        }
 
                         if let Some(a_due) = a_due {
                             if let Some(b_due) = b_due {
@@ -142,25 +176,33 @@ impl IsekCalendar {
 
                         Ordering::Equal
                     });
-
-                    if !ascending {
-                        todos.reverse();
-                    }
                 }
-                SortingConfig::PRIORITY(ascending) => {
+                SortingVariant::Priority => {
                     todos.sort_by(|a, b| {
                         let a_prio = a.get_priority().unwrap_or(10);
-                        let b_prio =b.get_priority().unwrap_or(10);
+                        let b_prio = b.get_priority().unwrap_or(10);
+
+                        if a.get_completed().is_some() {
+                            if b.get_completed().is_some() {
+                                return Ordering::Equal;
+                            };
+
+                            return Ordering::Greater;
+                        }
+
+                        if b.get_completed().is_some() {
+                            return Ordering::Less;
+                        }
 
                         a_prio.cmp(&b_prio)
                     });
-
-                    if !ascending {
-                        todos.reverse();
-                    }
                 }
                 _ => {}
             };
+
+            if !sort.ascending {
+                todos.reverse();
+            }
         };
 
         todos
@@ -168,12 +210,16 @@ impl IsekCalendar {
 }
 
 /// Main application state and logic
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct App {
     /// Flag to indicate if the application should exit
     pub exit: bool,
+
     /// List of loaded calendars with their data
     pub calendars: Vec<IsekCalendar>,
+
+    /// Settings defining how the data is displayed
+    pub display: DisplayOptions,
 
     /// State for list navigation (selection)
     pub list_state: ListState,
@@ -186,12 +232,14 @@ impl App {
         let config: IsekConfig = confy::load("isek", "config")?;
 
         Ok(Self {
+            exit: false,
             calendars: config
                 .calendars
                 .into_iter()
                 .map(IsekCalendar::from_config)
                 .collect::<Result<Vec<IsekCalendar>>>()?,
-            ..Default::default()
+            display: config.display,
+            list_state: ListState::default(),
         })
     }
 
