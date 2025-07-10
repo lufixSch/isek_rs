@@ -13,7 +13,7 @@ use eyre::{Context, ContextCompat, eyre};
 use ical::{
     IcalParser, generator::Emitter, parser::ical::component::IcalCalendar, property::Property,
 };
-use icalendar::{Calendar, CalendarComponent, Component, Todo, TodoStatus};
+use icalendar::{Calendar, CalendarComponent, Component, Todo};
 use ratatui::widgets::ListState;
 
 use crate::{

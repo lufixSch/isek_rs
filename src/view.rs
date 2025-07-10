@@ -110,7 +110,7 @@ impl View for MainView {
 
         // Render status bar
         let keybinds = match app.state {
-            State::Normal => vec![("q", "Exit"), ("s", "Sort"), ("f", "Filter")],
+            State::Normal => vec![("q", "Exit"), ("s", "Sort"), ("f", "Filter"), ("x", "Toggle done")],
             State::ConfigSort => vec![
                 ("d", "By Date"),
                 ("p", "By Priority"),
