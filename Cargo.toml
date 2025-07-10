@@ -16,6 +16,7 @@ colors-transform = "0.2.11"
 confy = "1.0.0"
 crossterm = "0.29.0"
 eyre = "0.6.12"
+ical = { version = "0.11.0", features = ["ical", "generator"] }
 icalendar = "0.16.15"
 ratatui = "0.29.0"
 serde = { version = "1.0.219", features = ["derive"] }

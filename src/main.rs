@@ -20,14 +20,14 @@ fn main() -> Result<()> {
     // Initialize color_eyre error reporting system
     color_eyre::install()?;
 
-    // Create and initialize the main application instance
+    //// Create and initialize the main application instance
     let mut app = App::new()?;
 
-    // Initialize ratatui and run the application
+    //// Initialize ratatui and run the application
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     let res = run(&mut terminal, &mut app);
 
-    // Restore terminal to its original state before exiting
+    //// Restore terminal to its original state before exiting
     ratatui::restore();
     res
 }

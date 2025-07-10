@@ -31,16 +31,17 @@ pub struct MainView;
 
 impl MainView {
     /// Handle key press events for navigation and quitting
-    fn handle_key_event(&self, app: &mut App, key_event: KeyEvent) {
+    fn handle_key_event(&self, app: &mut App, key_event: KeyEvent) -> Result<()> {
         match app.state {
             State::Normal => match key_event.code {
-                KeyCode::Char('q') => app.exit(),
-                KeyCode::Char('j') => app.list_state.select_next(),
-                KeyCode::Char('k') => app.list_state.select_previous(),
-                KeyCode::Char('s') => app.switch_state(State::ConfigSort),
-                KeyCode::Char('f') => app.switch_state(State::ConfigFilter),
-                KeyCode::Esc => app.escape(),
-                _ => {}
+                KeyCode::Char('q') => Ok(app.exit()),
+                KeyCode::Char('j') => Ok(app.list_state.select_next()),
+                KeyCode::Char('k') => Ok(app.list_state.select_previous()),
+                KeyCode::Char('s') => Ok(app.switch_state(State::ConfigSort)),
+                KeyCode::Char('f') => Ok(app.switch_state(State::ConfigFilter)),
+                KeyCode::Char('x') => app.toggle_done(),
+                KeyCode::Esc => Ok(app.escape()),
+                _ => Ok(()),
             },
             State::ConfigSort => match key_event.code {
                 KeyCode::Char('d') => app.configure_sort(SortingConfig {
@@ -63,16 +64,16 @@ impl MainView {
                     ascending: !app.display.sort.ascending,
                     ignore_done: app.display.sort.ignore_done,
                 }),
-                _ => app.escape(),
+                _ => Ok(app.escape()),
             },
             State::ConfigFilter => match key_event.code {
                 KeyCode::Char('d') => app.configure_filter(FilterConfig {
                     show_done: app.display.filter.show_done.next(),
                     show_done_for: app.display.filter.show_done_for,
                 }),
-                _ => app.escape(),
+                _ => Ok(app.escape()),
             },
-            _ => {}
+            _ => Ok(()),
         }
     }
 }
@@ -82,7 +83,7 @@ impl View for MainView {
         // Process keyboard events
         match event::read()? {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(app, key_event)
+                self.handle_key_event(app, key_event)?
             }
             _ => {}
         }
@@ -117,7 +118,7 @@ impl View for MainView {
                 ("a", "Toggle Ascending"),
             ],
             State::ConfigFilter => {
-                vec![("d", "Rotate show done")] 
+                vec![("d", "Rotate show done")]
             }
             _ => vec![],
         };

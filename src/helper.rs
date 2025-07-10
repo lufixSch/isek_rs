@@ -1,6 +1,10 @@
-use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, Utc, offset::LocalResult};
+use chrono::{DateTime, Local, NaiveDateTime, NaiveTime, Utc};
 use chrono_tz::Tz;
 use icalendar::{CalendarDateTime, DatePerhapsTime};
+
+pub const ICAL_NAIVE_DATE_TIME_FORMAT: &str = "%Y%m%dT%H%M%S";
+pub const ICAL_UTC_DATE_TIME_FORMAT: &str = "%Y%m%dT%H%M%SZ";
+pub const ICAL_NAIVE_DATE_FORMAT: &str = "%Y%m%d";
 
 /// Formats provided datetime object
 pub fn format_ical_datetime(dt: DatePerhapsTime, date_fmt: &str, dt_fmt: &str) -> String {

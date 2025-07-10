@@ -38,49 +38,50 @@ impl StatefulWidget for ToDoList<'_> {
         buf: &mut ratatui::prelude::Buffer,
         state: &mut Self::State,
     ) {
+        let sort = Some(&state.display.sort);
+        let filter = Some(&state.display.filter);
+
         // Generate list items from the application's calendar data
-        let items = state
+        let todos= state
             .calendars
-            .iter()
-            .flat_map(|cal| {
-                cal.get_todos(Some(&state.display.sort), Some(&state.display.filter))
-                    .iter()
-                    .map(|t| {
-                        Line::from(vec![
-                            match t.get_completed() {
-                                Some(_) => "[X] ",
-                                None => "[ ] ",
-                            }
-                            .into(),
-                            format!(" {} ", cal.name).bg(style::Color::Rgb(
-                                cal.color.get_red() as u8,
-                                cal.color.get_green() as u8,
-                                cal.color.get_blue() as u8,
-                            )),
-                            " ".into(),
-                            t.get_summary()
-                                .wrap_err_with(|| {
-                                    format!("No summary (e.g. title) for some ToDo in {}", cal.name)
-                                })
-                                .unwrap()
-                                .into(),
-                            match t.get_due() {
-                                Some(dt) => format!(
-                                    " {}",
-                                    format_ical_datetime(
-                                        dt,
-                                        &state.display.date_format.date,
-                                        &state.display.date_format.datetime
-                                    )
-                                )
-                                .fg(style::Color::Blue),
-                                None => "".into(),
-                            },
-                        ])
-                    })
-                    .collect::<Vec<Line>>()
+            .get_todos(sort, filter);
+
+        let items = todos.iter()
+            .map(|t| {
+                Line::from(vec![
+                    match t.get().get_completed() {
+                        Some(_) => "[X] ",
+                        None => "[ ] ",
+                    }
+                    .into(),
+                    format!(" {} ", t.calendar_name).bg(style::Color::Rgb(
+                        t.color.get_red() as u8,
+                        t.color.get_green() as u8,
+                        t.color.get_blue() as u8,
+                    )),
+                    " ".into(),
+                    t.get().get_summary()
+                        .wrap_err_with(|| {
+                            format!("No summary (e.g. title) for some ToDo in {}", t.calendar_name)
+                        })
+                        .unwrap()
+                        .into(),
+                    match t.get().get_due() {
+                        Some(dt) => format!(
+                            " {}",
+                            format_ical_datetime(
+                                dt,
+                                &state.display.date_format.date,
+                                &state.display.date_format.datetime
+                            )
+                        )
+                        .fg(style::Color::Blue),
+                        None => "".into(),
+                    },
+                ])
             })
             .collect::<Vec<Line>>();
+
 
         // Configure and render the list widget
         let mut list = List::new(items);
