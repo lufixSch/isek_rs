@@ -8,20 +8,26 @@ use std::{
 
 use chrono::Utc;
 use color_eyre::eyre::Result;
-use colors_transform::Rgb;
+use colors_transform::{Color, Rgb};
 use eyre::{Context, ContextCompat, eyre};
 use ical::{
     IcalParser, generator::Emitter, parser::ical::component::IcalCalendar, property::Property,
 };
 use icalendar::{Calendar, CalendarComponent, Component, Todo};
-use ratatui::widgets::ListState;
+use ratatui::{
+    style::{self, Stylize},
+    text::Span,
+    widgets::ListState,
+};
 
 use crate::{
     config::{
-        CalendarConfig, DisplayOptions, FilterConfig, IsekConfig, ShowDoneOptions, SortingConfig,
-        SortingVariant,
+        CalendarConfig, CalendarType, DisplayOptions, FilterConfig, IsekConfig, ShowDoneOptions,
+        SortingConfig, SortingVariant,
     },
-    helper::{ICAL_UTC_DATE_TIME_FORMAT, calculate_index, ical_datetime_to_chrono},
+    helper::{
+        ICAL_UTC_DATE_TIME_FORMAT, calculate_index, format_ical_datetime, ical_datetime_to_chrono,
+    },
 };
 
 #[derive(Debug)]
@@ -42,7 +48,8 @@ pub enum CalData {
 /// Representation of a ToDo item
 #[derive(Debug)]
 pub struct IsekTodo<'a> {
-    pub calendar_name: &'a String,
+    pub cal_name: &'a String,
+    pub cal_display_name: &'a Option<String>,
     pub color: &'a Rgb,
     data: &'a Todo,
 }
@@ -50,6 +57,50 @@ pub struct IsekTodo<'a> {
 impl<'a> IsekTodo<'a> {
     pub fn get(&self) -> &Todo {
         self.data
+    }
+
+    pub fn format(&self, state: &App) -> Vec<Span> {
+        let t = self;
+
+        vec![
+            match t.get().get_completed() {
+                Some(_) => state.display.progress.done.clone(),
+                None => state.display.progress.none.clone(),
+            }
+            .into(),
+            format!(
+                " {} ",
+                match t.cal_display_name {
+                    Some(n) => n,
+                    None => t.cal_name,
+                }
+            )
+            .bg(style::Color::Rgb(
+                t.color.get_red() as u8,
+                t.color.get_green() as u8,
+                t.color.get_blue() as u8,
+            )),
+            " ".into(),
+            t.get()
+                .get_summary()
+                .wrap_err_with(|| {
+                    format!("No summary (e.g. title) for some ToDo in {}", t.cal_name)
+                })
+                .unwrap()
+                .into(),
+            match t.get().get_due() {
+                Some(dt) => format!(
+                    " {}",
+                    format_ical_datetime(
+                        dt,
+                        &state.display.date_format.date,
+                        &state.display.date_format.datetime
+                    )
+                )
+                .fg(style::Color::Blue),
+                None => "".into(),
+            },
+        ]
     }
 
     // pub fn get_mut(&mut self) -> &mut Todo {
@@ -91,7 +142,7 @@ impl<'a> IsekTodo<'a> {
 pub struct IsekCalendar {
     /// Configuration for this calendar
     pub config: CalendarConfig,
-    /// Display name of the calendar
+    /// Name of the calendar
     pub name: String,
     /// Color associated with the calendar (used for display)
     pub color: Rgb,
@@ -102,10 +153,10 @@ pub struct IsekCalendar {
 impl IsekCalendar {
     /// Create a new calendar instance from configuration
     pub fn from_config(cfg: CalendarConfig) -> Result<Self> {
-        match cfg {
-            CalendarConfig::VDIR(ref config) => {
+        match cfg.kind {
+            CalendarType::VDIR => {
                 // Read all .ics files in directory
-                let dir_path = Path::new(&config.path);
+                let dir_path = Path::new(&cfg.path);
                 let entries = fs::read_dir(dir_path)?;
                 let mut cal: HashMap<String, (IcalCalendar, Calendar)> = HashMap::new();
 
@@ -204,9 +255,9 @@ impl IsekCalendar {
 
     // Save changes to file
     pub fn save(&mut self) -> Result<()> {
-        match self.config {
-            CalendarConfig::VDIR(ref config) => {
-                let dir_path = Path::new(&config.path);
+        match self.config.kind {
+            CalendarType::VDIR => {
+                let dir_path = Path::new(&self.config.path);
 
                 if !dir_path.exists() {
                     return Err(eyre!("Calendar path doesn't exist"));
@@ -246,7 +297,8 @@ impl IsekCalendar {
                         .flat_map(|c| {
                             if let CalendarComponent::Todo(t) = c {
                                 Some(IsekTodo {
-                                    calendar_name: &self.name,
+                                    cal_name: &self.name,
+                                    cal_display_name: &self.config.display_name,
                                     color: &self.color,
                                     data: t,
                                 })
@@ -576,7 +628,7 @@ impl App {
 
                 match tasks.get(task_idx) {
                     Some(task) => {
-                        let cal_id = task.calendar_name.clone();
+                        let cal_id = task.cal_name.clone();
                         let task_id = task.get().get_uid().wrap_err("Task has no UID")?.to_owned();
 
                         self.calendars.toggle_done(&cal_id, &task_id);

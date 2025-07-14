@@ -16,14 +16,7 @@ impl Default for IsekConfig {
     fn default() -> Self {
         // Create a default configuration with one VDIR calendar
         Self {
-            calendars: vec![
-                CalendarConfig::VDIR(VdirCalendarConfig {
-                    path: "path/a".into(),
-                }),
-                CalendarConfig::VDIR(VdirCalendarConfig {
-                    path: "path/b".into(),
-                }),
-            ],
+            calendars: vec![],
             display: DisplayOptions {
                 sort: SortingConfig {
                     by: SortingVariant::Priority,
@@ -38,23 +31,40 @@ impl Default for IsekConfig {
                     date: "%Y-%m-%d".into(),
                     datetime: "%Y-%m-%d %H:%M".into(),
                 },
+                progress: ProgressDisplayConfig {
+                    none: "[ ] ".into(),
+                    done: "[X] ".into(),
+                    in_progress: "[-] ".into(),
+                },
             },
         }
     }
 }
 
 /// Enum representing different types of calendar configurations
+// #[derive(Debug, Serialize, Deserialize, Clone)]
+// pub enum CalendarConfig {
+//     /// VDIR calendar configuration variant
+//     VDIR(VdirCalendarConfig),
+// }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum CalendarConfig {
+pub enum CalendarType {
     /// VDIR calendar configuration variant
-    VDIR(VdirCalendarConfig),
+    VDIR,
 }
 
 /// Configuration for a VDIR-based calendar
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct VdirCalendarConfig {
+pub struct CalendarConfig {
+    /// Type of calendar structure
+    pub kind: CalendarType,
+
     /// Filesystem path to the calendar directory
     pub path: String,
+
+    /// String displayed for this calendar
+    pub display_name: Option<String>,
 }
 
 /// Structure representing the display configuration options
@@ -64,8 +74,10 @@ pub struct DisplayOptions {
     pub sort: SortingConfig,
     /// Date formatting settings for how dates and datetimes are displayed
     pub date_format: DateFormatConfig,
-
+    /// Default settings for how to filter tasks
     pub filter: FilterConfig,
+    /// Progress Strings
+    pub progress: ProgressDisplayConfig,
 }
 
 /// Enum representing different sorting variants for tasks
@@ -128,4 +140,11 @@ pub struct FilterConfig {
 
     // Shows tasks done for less than x days if ShowDoneOptions::Some
     pub show_done_for: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ProgressDisplayConfig {
+    pub none: String,
+    pub done: String,
+    pub in_progress: String,
 }

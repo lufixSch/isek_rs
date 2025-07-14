@@ -99,7 +99,7 @@ impl View for MainView {
         let block = Block::bordered()
             .title(title.centered())
             .border_set(border::ROUNDED)
-            .padding(Padding::symmetric(2, 1));
+            .padding(Padding::symmetric(1, 1));
 
         let area = frame.area();
         let status_bar_area = Rect::new(0, area.height - 1, area.width, 1);
